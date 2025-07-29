@@ -21,8 +21,17 @@ default: &default
 
 
 development:
-  <<: *default
-  database: good_night_demo_development
+  primary: &primary_development
+    <<: *default
+    database: good_night_demo_development
+  cache:
+    <<: *primary_development
+    database: good_night_demo_development_cache
+    migrations_paths: db/cache_migrate
+  queue:
+    <<: *primary_development
+    database: good_night_demo_development_queue
+    migrations_paths: db/queue_migrate
 
   # The specified database role being used to connect to PostgreSQL.
   # To create additional roles in PostgreSQL see `$ createuser --help`.
