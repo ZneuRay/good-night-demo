@@ -1,0 +1,2 @@
+class SleepRecord < ApplicationRecord
+end

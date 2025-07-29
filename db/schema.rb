@@ -10,9 +10,22 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.0].define(version: 2025_07_29_041008) do
+ActiveRecord::Schema[8.0].define(version: 2025_07_29_053747) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
+
+  create_table "sleep_records", force: :cascade do |t|
+    t.bigint "user_id"
+    t.datetime "clock_in_time", null: false
+    t.datetime "clock_out_time"
+    t.datetime "created_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["clock_in_time", "clock_out_time"], name: "index_sleep_records_on_duration"
+    t.index ["clock_in_time"], name: "index_sleep_records_on_clock_in_time"
+    t.index ["created_at"], name: "index_sleep_records_on_created_at"
+    t.index ["user_id", "created_at"], name: "index_sleep_records_on_user_id_and_created_at"
+    t.index ["user_id"], name: "index_sleep_records_on_user_id"
+  end
 
   create_table "users", force: :cascade do |t|
     t.string "name"
