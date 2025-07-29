@@ -105,8 +105,8 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "should load fixtures correctly" do
-    alice = users(:one)
-    bob = users(:two)
+    alice = users(:alice)
+    bob = users(:bob)
     admin = users(:admin)
 
     assert_equal "Alice Johnson", alice.name
@@ -115,7 +115,7 @@ class UserTest < ActiveSupport::TestCase
   end
 
   test "fixtures should be persisted" do
-    alice = users(:one)
+    alice = users(:alice)
     assert alice.persisted?
     assert_not_nil alice.id
   end
