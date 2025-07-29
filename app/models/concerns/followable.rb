@@ -2,6 +2,9 @@ module Followable
   extend ActiveSupport::Concern
 
   included do
+    # Ensure Cacheable is included before Followable
+    include Cacheable unless included_modules.include?(Cacheable)
+
     # Following relationships - users this user follows
     has_many :followings, foreign_key: 'follower_id', dependent: :destroy
     has_many :following, through: :followings, source: :followed
@@ -46,8 +49,7 @@ module Followable
 
   # Get count of users following this user
   def followers_count
-    cache_key = "user:#{id}:followers_count"
-    Rails.cache.fetch(cache_key, expires_in: 6.hours) do
+    cache_fetch('followers_count', expires_in: 10.minutes) do
       followers.count
     end
   end
@@ -56,15 +58,14 @@ module Followable
 
   # Cache following user IDs for performance
   def cached_following_ids
-    cache_key = "user:#{id}:following_list"
-    Rails.cache.fetch(cache_key, expires_in: 6.hours) do
+    cache_fetch('following_list', expires_in: 10.minutes) do
       following.pluck(:id)
     end
   end
 
   # Invalidate following cache when relationships change
   def invalidate_following_cache
-    Rails.cache.delete("user:#{id}:following_list")
-    Rails.cache.delete("user:#{id}:followers_count")
+    cache_delete('following_list')
+    cache_delete('followers_count')
   end
 end
