@@ -1,0 +1,29 @@
+# Read about fixtures at https://api.rubyonrails.org/classes/ActiveRecord/FixtureSet.html
+
+# This model initially had no columns defined. If you add columns to the
+# model remove the "{}" from the fixture names and add the columns immediately
+# below each fixture, per the syntax in the comments below
+#
+alice_complete_record:
+  user: alice
+  clock_in_time: <%= 2.days.ago %>
+  clock_out_time: <%= 2.days.ago + 8.hours %>
+  created_at: <%= 2.days.ago %>
+
+bob_incomplete_record:
+  user: bob
+  clock_in_time: <%= 1.day.ago %>
+  clock_out_time: 
+  created_at: <%= 1.day.ago %>
+
+alice_long_sleep:
+  user: alice
+  clock_in_time: <%= 5.days.ago %>
+  clock_out_time: <%= 5.days.ago + 10.hours %>
+  created_at: <%= 5.days.ago %>
+
+bob_short_sleep:
+  user: bob
+  clock_in_time: <%= 3.days.ago %>
+  clock_out_time: <%= 3.days.ago + 6.hours %>
+  created_at: <%= 3.days.ago %>
