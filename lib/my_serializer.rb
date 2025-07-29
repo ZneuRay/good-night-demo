@@ -43,6 +43,9 @@ module MySerializer
   private
 
   def serialize_attribute(attr_name, config)
+    # Handle nil object gracefully
+    return nil if @object.nil?
+
     if config[:block]
       # Execute the block if provided
       instance_exec(@object, &config[:block])
@@ -54,7 +57,7 @@ module MySerializer
       config[:serializer].from(value)
     else
       # Direct attribute access
-      @object.send(attr_name)
+      @object.respond_to?(attr_name) ? @object.send(attr_name) : nil
     end
   end
 end
