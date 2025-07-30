@@ -14,6 +14,13 @@ Rails.application.routes.draw do
         post :follow
         delete :unfollow
       end
+
+      resources :sleep_records, only: [:index] do
+        collection do
+          post :clock_in
+          post :clock_out
+        end
+      end
     end
   end
 end
