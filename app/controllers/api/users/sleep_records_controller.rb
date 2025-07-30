@@ -38,4 +38,20 @@ class Api::Users::SleepRecordsController < ApplicationController
       }, status: :unprocessable_entity
     end
   end
+
+  def following
+    service = Sleep::FollowingService.new(user: current_user)
+
+    if service.call
+      render json: {
+        sleep_records: service.sleep_records,
+        message: "Following sleep records retrieved successfully"
+      }, status: :ok
+    else
+      render json: {
+        error: "Failed to retrieve following sleep records",
+        details: service.errors
+      }, status: :unprocessable_entity
+    end
+  end
 end

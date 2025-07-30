@@ -19,6 +19,7 @@ Rails.application.routes.draw do
         collection do
           post :clock_in
           patch :clock_out
+          get :following
         end
       end
     end
