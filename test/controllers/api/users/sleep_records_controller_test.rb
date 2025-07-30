@@ -101,7 +101,7 @@ class Api::Users::SleepRecordsControllerTest < ActionDispatch::IntegrationTest
       post clock_in_api_user_sleep_records_url(@user), headers: @headers
     end
 
-    assert_response :ok
+    assert_response :created
     json_response = JSON.parse(response.body)
     assert_equal "Clocked in successfully", json_response['message']
 
@@ -114,7 +114,7 @@ class Api::Users::SleepRecordsControllerTest < ActionDispatch::IntegrationTest
   test "should return proper response format on successful clock in" do
     post clock_in_api_user_sleep_records_url(@user), headers: @headers
 
-    assert_response :ok
+    assert_response :created
     json_response = JSON.parse(response.body)
 
     assert json_response.key?('message')
@@ -148,7 +148,7 @@ class Api::Users::SleepRecordsControllerTest < ActionDispatch::IntegrationTest
       post clock_in_api_user_sleep_records_url(@user), headers: @headers
     end
 
-    assert_response :ok
+    assert_response :created
 
     latest_record = @user.sleep_records.last
     assert_equal freeze_time.to_i, latest_record.clock_in_time.to_i
@@ -194,7 +194,7 @@ class Api::Users::SleepRecordsControllerTest < ActionDispatch::IntegrationTest
 
     assert_response :unprocessable_entity
     json_response = JSON.parse(response.body)
-    assert_equal "Failed to clock out", json_response['error']
+    assert_equal "Clock out failed", json_response['error']
   end
 
   # Bypass authentication for demo
