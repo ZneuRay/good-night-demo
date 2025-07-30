@@ -6,8 +6,6 @@ module SleepTracking
     include Cacheable unless included_modules.include?(Cacheable)
 
     has_many :sleep_records, dependent: :destroy
-    scope :completed, -> { where.not(duration: 0) }
-    scope :incomplete, -> { where(duration: 0) }
   end
 
   # Find the last incomplete sleep record for clock out functionality
