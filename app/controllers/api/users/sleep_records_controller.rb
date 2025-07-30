@@ -24,10 +24,18 @@ class Api::Users::SleepRecordsController < ApplicationController
   end
 
   def clock_out
-    if current_user.clock_out!
-      render json: { message: 'Clocked out successfully' }, status: :ok
+    service = Sleep::ClockOutService.new(user: current_user)
+
+    if service.call
+      render json: {
+        sleep_record: SleepRecordsSerializer.from(service.sleep_record),
+        message: "Clocked out successfully"
+      }, status: :ok
     else
-      render json: { error: 'Failed to clock out' }, status: :unprocessable_entity
+      render json: {
+        error: "Clock out failed",
+        details: service.errors
+      }, status: :unprocessable_entity
     end
   end
 end
