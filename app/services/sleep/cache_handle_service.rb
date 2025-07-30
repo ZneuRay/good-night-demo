@@ -6,30 +6,10 @@ module Sleep
       @user = user
     end
 
-    # Check if user has any incomplete sleep records
-    def has_incomplete_sleep_record?
-      Rails.cache.fetch(incomplete_sleep_cache_key, expires_in: 24.hours) do
-        user.sleep_records.incomplete.exists?
-      end
-    end
-
-    # Find the most recent incomplete sleep record (highest ID)
-    def find_latest_incomplete_record
-      # Try cache first for performance
-      cached_record = find_cached_incomplete_record
-      return cached_record if cached_record
-
-      # Fallback to database - find the latest incomplete record by ID
-      record = user.sleep_records.incomplete.order(:id).last
-      cache_incomplete_record(record) if record
-      record
-    end
-
-    # Cache the latest incomplete sleep record
+    # Cache the latest incomplete sleep record (overwrites previous)
     def cache_incomplete_record(sleep_record)
       return unless sleep_record
 
-      # Always cache the latest incomplete record (overwrites previous)
       Rails.cache.write(
         last_incomplete_cache_key,
         {
@@ -40,25 +20,17 @@ module Sleep
         expires_in: 24.hours
       )
 
-      # Update existence flag
-      Rails.cache.write(incomplete_sleep_cache_key, true, expires_in: 24.hours)
-
       Rails.logger.debug "Cached latest incomplete record #{sleep_record.id} for user #{user.id}"
     end
 
-    # Update cache after clock out - check if more incomplete records exist
-    def update_incomplete_cache_after_clock_out
-      # Clear the current cached incomplete record
-      Rails.cache.delete(last_incomplete_cache_key)
+    # Clear incomplete cache when a record is completed
+    def clear_incomplete_cache_for_record(completed_record)
+      cached_data = Rails.cache.read(last_incomplete_cache_key)
 
-      # Check if there are still incomplete records and cache the latest one
-      latest_incomplete = user.sleep_records.incomplete.order(:id).last
-
-      if latest_incomplete
-        cache_incomplete_record(latest_incomplete)
-      else
-        # No more incomplete records
-        Rails.cache.write(incomplete_sleep_cache_key, false, expires_in: 24.hours)
+      # Only clear if the cached record is the one being completed
+      if cached_data && cached_data[:id] == completed_record.id
+        Rails.cache.delete(last_incomplete_cache_key)
+        Rails.logger.debug "Cleared incomplete cache for completed record #{completed_record.id}"
       end
     end
 
@@ -84,17 +56,6 @@ module Sleep
     end
 
     private
-
-    def find_cached_incomplete_record
-      cached_data = Rails.cache.read(last_incomplete_cache_key)
-      return nil unless cached_data
-
-      # Verify the record still exists and is incomplete
-      user.sleep_records.find_by(
-        id: cached_data[:id],
-        clock_out_time: nil
-      )
-    end
 
     def collect_following_weekly_records
       previous_week_start = Date.current.beginning_of_week - 1.week
@@ -140,10 +101,6 @@ module Sleep
 
     def last_incomplete_cache_key
       "user:#{user.id}:last_incomplete_sleep:#{Date.current.strftime('%Y-%m-%d')}"
-    end
-
-    def incomplete_sleep_cache_key
-      "user:#{user.id}:has_incomplete_sleep:#{Date.current.strftime('%Y-%m-%d')}"
     end
 
     def following_weekly_cache_key
