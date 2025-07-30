@@ -15,10 +15,10 @@ Rails.application.routes.draw do
         delete :unfollow
       end
 
-      resources :sleep_records, only: [:index] do
+      resources :sleep_records, only: [:index], controller: 'users/sleep_records' do
         collection do
           post :clock_in
-          post :clock_out
+          patch :clock_out
         end
       end
     end
