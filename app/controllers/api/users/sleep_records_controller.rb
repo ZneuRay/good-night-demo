@@ -8,10 +8,18 @@ class Api::Users::SleepRecordsController < ApplicationController
   end
 
   def clock_in
-    if current_user.clock_in!
-      render json: { message: 'Clocked in successfully' }, status: :ok
+    service = Sleep::ClockInService.new(user: current_user)
+
+    if service.call
+      render json: {
+        sleep_record: SleepRecordsSerializer.from(service.sleep_record),
+        message: "Clocked in successfully"
+      }, status: :created
     else
-      render json: { error: 'Failed to clock in' }, status: :unprocessable_entity
+      render json: {
+        error: "Clock in failed",
+        details: service.errors
+      }, status: :unprocessable_entity
     end
   end
 
