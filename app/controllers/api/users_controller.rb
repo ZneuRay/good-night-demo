@@ -1,9 +1,10 @@
 class Api::UsersController < ApplicationController
 
+  before_action :authenticate_user!
   before_action :set_user, only: [:follow, :unfollow]
 
   def index
-    @users = User.all
+    @users = User.all.includes(:following, :sleep_records)
     render json: UserSerializer.from(@users), status: :ok
   end
 
