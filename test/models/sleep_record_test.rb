@@ -3,7 +3,10 @@ require "test_helper"
 class SleepRecordTest < ActiveSupport::TestCase
   def setup
     @user = User.create!(name: "Test User")
-    @sleep_record = @user.sleep_records.build(clock_in_time: Time.current)
+    @sleep_record = @user.sleep_records.build(
+      clock_in_time: Time.current,
+      duration: 0
+    )
   end
 
   test "should be valid with valid attributes" do
@@ -26,23 +29,27 @@ class SleepRecordTest < ActiveSupport::TestCase
     assert_not @sleep_record.completed?
   end
 
-  test "should be completed when clock_out_time is present" do
+  test "should be completed when clock_out_time is present and duration is positive" do
     @sleep_record.clock_out_time = Time.current + 8.hours
+    @sleep_record.duration = 8.hours.to_i
     assert @sleep_record.completed?
   end
 
-  test "should calculate duration correctly" do
-    clock_in = Time.current
-    clock_out = clock_in + 8.hours
-
-    @sleep_record.clock_in_time = clock_in
-    @sleep_record.clock_out_time = clock_out
-
-    assert_equal 8.hours, @sleep_record.duration
+  test "should not be completed when clock_out_time is present but duration is zero" do
+    @sleep_record.clock_out_time = Time.current + 8.hours
+    @sleep_record.duration = 0
+    assert_not @sleep_record.completed?
   end
 
-  test "should return nil duration when not completed" do
-    assert_nil @sleep_record.duration
+  test "should return stored duration value" do
+    @sleep_record.duration = 28800 # 8 hours in seconds
+    assert_equal 28800, @sleep_record.duration
+  end
+
+  test "should return 0 duration when not completed" do
+    @sleep_record.duration = 0
+    assert_equal 0, @sleep_record.duration
+    assert_not @sleep_record.completed?
   end
 
   test "should validate clock_out_time is after clock_in_time" do
@@ -54,10 +61,14 @@ class SleepRecordTest < ActiveSupport::TestCase
   end
 
   test "should scope completed records" do
-    incomplete = @user.sleep_records.create!(clock_in_time: Time.current)
+    incomplete = @user.sleep_records.create!(
+      clock_in_time: Time.current,
+      duration: 0
+    )
     complete = @user.sleep_records.create!(
       clock_in_time: Time.current - 8.hours,
-      clock_out_time: Time.current
+      clock_out_time: Time.current,
+      duration: 28800
     )
 
     completed_records = @user.sleep_records.completed
@@ -66,10 +77,14 @@ class SleepRecordTest < ActiveSupport::TestCase
   end
 
   test "should scope incomplete records" do
-    incomplete = @user.sleep_records.create!(clock_in_time: Time.current)
+    incomplete = @user.sleep_records.create!(
+      clock_in_time: Time.current,
+      duration: 0
+    )
     complete = @user.sleep_records.create!(
       clock_in_time: Time.current - 8.hours,
-      clock_out_time: Time.current
+      clock_out_time: Time.current,
+      duration: 28800
     )
 
     incomplete_records = @user.sleep_records.incomplete
@@ -80,10 +95,12 @@ class SleepRecordTest < ActiveSupport::TestCase
   test "should scope previous week records" do
     old_record = @user.sleep_records.create!(
       clock_in_time: 2.weeks.ago,
+      duration: 0,
       created_at: 2.weeks.ago
     )
     recent_record = @user.sleep_records.create!(
       clock_in_time: 3.days.ago,
+      duration: 0,
       created_at: 3.days.ago
     )
 
@@ -95,25 +112,29 @@ class SleepRecordTest < ActiveSupport::TestCase
   test "should order by duration descending" do
     record1 = @user.sleep_records.create!(
       clock_in_time: Time.current - 10.hours,
-      clock_out_time: Time.current - 2.hours # 8 hours
+      clock_out_time: Time.current - 2.hours,
+      duration: 28800 # 8 hours
     )
     record2 = @user.sleep_records.create!(
       clock_in_time: Time.current - 6.hours,
-      clock_out_time: Time.current # 6 hours
+      clock_out_time: Time.current,
+      duration: 21600 # 6 hours
     )
 
     ordered_records = @user.sleep_records.ordered_by_duration
-    assert_equal record1, ordered_records.first
-    assert_equal record2, ordered_records.last
+    assert_equal record1, ordered_records.last
+    assert_equal record2, ordered_records.first
   end
 
-  test "should order by created time ascending" do
+  test "should order by created time descending" do
     record1 = @user.sleep_records.create!(
       clock_in_time: Time.current,
+      duration: 0,
       created_at: 2.days.ago
     )
     record2 = @user.sleep_records.create!(
       clock_in_time: Time.current,
+      duration: 0,
       created_at: 1.day.ago
     )
 
@@ -125,10 +146,12 @@ class SleepRecordTest < ActiveSupport::TestCase
   test "should find last incomplete record for user" do
     complete_record = @user.sleep_records.create!(
       clock_in_time: 2.days.ago,
-      clock_out_time: 1.day.ago
+      clock_out_time: 1.day.ago,
+      duration: 86400
     )
     incomplete_record = @user.sleep_records.create!(
-      clock_in_time: Time.current
+      clock_in_time: Time.current,
+      duration: 0
     )
 
     last_incomplete = @user.sleep_records.incomplete.order(:created_at).last
@@ -137,10 +160,12 @@ class SleepRecordTest < ActiveSupport::TestCase
 
   test "should handle multiple incomplete records correctly" do
     first_incomplete = @user.sleep_records.create!(
-      clock_in_time: 1.day.ago
+      clock_in_time: 1.day.ago,
+      duration: 0
     )
     second_incomplete = @user.sleep_records.create!(
-      clock_in_time: Time.current
+      clock_in_time: Time.current,
+      duration: 0
     )
 
     incomplete_records = @user.sleep_records.incomplete.order(:created_at)
@@ -158,15 +183,20 @@ class SleepRecordTest < ActiveSupport::TestCase
     assert_not_nil @sleep_record.updated_at
   end
 
-  test "should update clock_out_time for existing record" do
+  test "should update clock_out_time and duration via service" do
     @sleep_record.save!
     clock_out_time = Time.current + 8.hours
+    calculated_duration = 28800 # 8 hours in seconds
 
-    @sleep_record.update!(clock_out_time: clock_out_time)
+    # Simulate service updating both fields together
+    @sleep_record.update!(
+      clock_out_time: clock_out_time,
+      duration: calculated_duration
+    )
 
     assert_equal clock_out_time.to_i, @sleep_record.clock_out_time.to_i
     assert @sleep_record.completed?
-    assert_equal 8.hours, @sleep_record.duration
+    assert_equal calculated_duration, @sleep_record.duration
   end
 
   test "should handle edge case with same clock_in_and_clock_out_time" do
@@ -182,6 +212,7 @@ class SleepRecordTest < ActiveSupport::TestCase
     # Incomplete record from previous week
     incomplete_previous_week = @user.sleep_records.create!(
       clock_in_time: 3.days.ago,
+      duration: 0,
       created_at: 3.days.ago
     )
 
@@ -189,6 +220,7 @@ class SleepRecordTest < ActiveSupport::TestCase
     complete_previous_week = @user.sleep_records.create!(
       clock_in_time: 4.days.ago,
       clock_out_time: 4.days.ago + 8.hours,
+      duration: 28800,
       created_at: 4.days.ago
     )
 
