@@ -11,20 +11,14 @@ class SleepRecord < ApplicationRecord
     where(created_at: 1.week.ago..Time.current)
   }
   scope :ordered_by_duration, -> {
-    completed.order(Arel.sql("clock_out_time - clock_in_time DESC"))
+    completed.order(:duration)
   }
   scope :ordered_by_created_time, -> {
     order(created_at: :desc)
   }
 
   def completed?
-    clock_out_time.present?
-  end
-
-  def duration
-    return nil unless completed?
-
-    (clock_out_time - clock_in_time).floor
+    duration != 0
   end
 
   private
