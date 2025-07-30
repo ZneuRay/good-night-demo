@@ -3,7 +3,7 @@ class Api::Users::SleepRecordsController < ApplicationController
   before_action :authenticate_user!
 
   def index
-    @sleep_records = current_user.sleep_records
+    @sleep_records = current_user.sleep_records.completed
     render json: SleepRecordsSerializer.from(@sleep_records), status: :ok
   end
 
