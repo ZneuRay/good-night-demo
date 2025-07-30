@@ -66,7 +66,7 @@ module Sleep
       # Process followers in batches for performance
       user.following.find_in_batches(batch_size: 100) do |batch|
         batch.each do |followed_user|
-          user_week_key = "user:#{followed_user.id}:sleep_records:#{week_key_suffix}"
+          user_week_key = "user:#{followed_user.id}:sleep_records:week:#{week_key_suffix}"
           cached_records = Rails.cache.read(user_week_key) || []
 
           cached_records.each do |record|
