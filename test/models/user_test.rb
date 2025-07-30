@@ -201,144 +201,151 @@ class UserTest < ActiveSupport::TestCase
     end
   end
 
-  # Tests for SleepTracking concern
-  test "should include sleep tracking concern" do
-    assert @user.respond_to?(:clock_in!)
-    assert @user.respond_to?(:clock_out!)
-    assert @user.respond_to?(:last_incomplete_sleep_record)
-    assert @user.respond_to?(:ordered_sleep_records)
-    assert @user.respond_to?(:following_sleep_records_previous_week)
-  end
-
+  # Tests for sleep records association (model-level only)
   test "should have sleep records association" do
     @user.save!
     assert_respond_to @user, :sleep_records
     assert_equal 0, @user.sleep_records.count
   end
 
-  test "should clock in successfully" do
+  test "should create sleep records through association" do
     @user.save!
 
-    sleep_record = @user.clock_in!
+    sleep_record = @user.sleep_records.create!(
+      clock_in_time: Time.current,
+      duration: 0
+    )
 
     assert_not_nil sleep_record
     assert sleep_record.persisted?
-    assert_not_nil sleep_record.clock_in_time
-    assert_nil sleep_record.clock_out_time
     assert_equal @user, sleep_record.user
     assert_equal 1, @user.sleep_records.count
   end
 
-  test "should clock out successfully" do
+  test "should find sleep records by completion status" do
     @user.save!
-    sleep_record = @user.clock_in!
-
-    updated_record = @user.clock_out!
-
-    assert_not_nil updated_record
-    assert_equal sleep_record.id, updated_record.id
-    assert_not_nil updated_record.clock_out_time
-    assert updated_record.completed?
-    assert updated_record.clock_out_time > updated_record.clock_in_time
-  end
-
-  test "should return nil when clocking out without incomplete record" do
-    @user.save!
-
-    result = @user.clock_out!
-
-    assert_nil result
-  end
-
-  test "should find last incomplete sleep record" do
-    @user.save!
-    completed_record = @user.sleep_records.create!(
-      clock_in_time: 2.days.ago,
-      clock_out_time: 1.day.ago
+    incomplete_record = @user.sleep_records.create!(
+      clock_in_time: Time.current,
+      duration: 0
     )
-    incomplete_record = @user.clock_in!
+    complete_record = @user.sleep_records.create!(
+      clock_in_time: 2.hours.ago,
+      clock_out_time: Time.current,
+      duration: 7200
+    )
 
-    last_incomplete = @user.last_incomplete_sleep_record
-
-    assert_equal incomplete_record.id, last_incomplete.id
-    assert_not_equal completed_record.id, last_incomplete.id
+    assert_includes @user.sleep_records.incomplete, incomplete_record
+    assert_includes @user.sleep_records.completed, complete_record
+    assert_not_includes @user.sleep_records.completed, incomplete_record
+    assert_not_includes @user.sleep_records.incomplete, complete_record
   end
 
-  test "should return ordered sleep records" do
+  test "should order sleep records correctly" do
     @user.save!
     first_record = @user.sleep_records.create!(
       clock_in_time: 2.days.ago,
+      duration: 0,
       created_at: 2.days.ago
     )
     second_record = @user.sleep_records.create!(
       clock_in_time: 1.day.ago,
+      duration: 0,
       created_at: 1.day.ago
     )
 
-    ordered_records = @user.ordered_sleep_records
-
-    assert_equal first_record.id, ordered_records.last.id
-    assert_equal second_record.id, ordered_records.first.id
+    ordered_by_created = @user.sleep_records.ordered_by_created_time
+    assert_equal second_record.id, ordered_by_created.first.id
+    assert_equal first_record.id, ordered_by_created.last.id
   end
 
-  test "should handle multiple clock ins correctly" do
+  test "should find last incomplete sleep record through association" do
     @user.save!
-
-    first_record = @user.clock_in!
-    second_record = @user.clock_in!
-
-    assert_not_equal first_record.id, second_record.id
-    assert_equal 2, @user.sleep_records.count
-    assert_equal second_record.id, @user.last_incomplete_sleep_record.id
-  end
-
-  test "should clock out most recent incomplete record" do
-    @user.save!
-    first_record = @user.clock_in!
-    second_record = @user.clock_in!
-
-    updated_record = @user.clock_out!
-
-    assert_equal second_record.id, updated_record.id
-    assert_not_nil updated_record.clock_out_time
-
-    # First record should still be incomplete
-    first_record.reload
-    assert_nil first_record.clock_out_time
-  end
-
-  test "should get following users sleep records from previous week" do
-    @user.save!
-    @user.follow(@other_user)
-
-    # Create completed sleep record for followed user
-    @other_user.sleep_records.create!(
-      clock_in_time: 3.days.ago,
-      clock_out_time: 3.days.ago + 8.hours,
-      created_at: 3.days.ago
+    completed_record = @user.sleep_records.create!(
+      clock_in_time: 2.days.ago,
+      clock_out_time: 1.day.ago,
+      duration: 86400
+    )
+    incomplete_record = @user.sleep_records.create!(
+      clock_in_time: Time.current,
+      duration: 0
     )
 
-    # Create old record (should not be included)
-    @other_user.sleep_records.create!(
-      clock_in_time: 2.weeks.ago,
-      clock_out_time: 2.weeks.ago + 6.hours,
-      created_at: 2.weeks.ago
-    )
-
-    following_records = @user.following_sleep_records_previous_week
-
-    assert_equal 1, following_records.size
-    assert_equal @other_user.id, following_records.first.user_id
+    last_incomplete = @user.sleep_records.incomplete.order(:id).last
+    assert_equal incomplete_record.id, last_incomplete.id
+    assert_not_equal completed_record.id, last_incomplete.id
   end
 
   test "should destroy associated sleep records when user is deleted" do
     @user.save!
-    @user.clock_in!
-    @user.clock_in!
+    @user.sleep_records.create!(clock_in_time: Time.current, duration: 0)
+    @user.sleep_records.create!(clock_in_time: 1.hour.ago, duration: 0)
 
     assert_difference ['SleepRecord.count'], -2 do
       @user.destroy
     end
+  end
+
+  test "should handle large number of sleep records efficiently" do
+    @user.save!
+
+    # Create many sleep records
+    50.times do |i|
+      @user.sleep_records.create!(
+        clock_in_time: i.days.ago,
+        clock_out_time: i.days.ago + 8.hours,
+        duration: 28800,
+        created_at: i.days.ago
+      )
+    end
+
+    assert_equal 50, @user.sleep_records.count
+    assert_equal 50, @user.sleep_records.completed.count
+    assert_equal 0, @user.sleep_records.incomplete.count
+  end
+
+  test "should support querying sleep records by date ranges" do
+    @user.save!
+
+    old_record = @user.sleep_records.create!(
+      clock_in_time: 2.weeks.ago,
+      clock_out_time: 2.weeks.ago + 8.hours,
+      duration: 28800,
+      created_at: 2.weeks.ago
+    )
+
+    recent_record = @user.sleep_records.create!(
+      clock_in_time: 3.days.ago,
+      clock_out_time: 3.days.ago + 8.hours,
+      duration: 28800,
+      created_at: 3.days.ago
+    )
+
+    previous_week_records = @user.sleep_records.previous_week
+    assert_includes previous_week_records, recent_record
+    assert_not_includes previous_week_records, old_record
+  end
+
+  test "should integrate with following users for social queries" do
+    @user.save!
+    @user.follow(@other_user)
+
+    # Create sleep record for followed user
+    @other_user.sleep_records.create!(
+      clock_in_time: 3.days.ago,
+      clock_out_time: 3.days.ago + 8.hours,
+      duration: 28800,
+      created_at: 3.days.ago
+    )
+
+    # Query through associations (business logic moved to services)
+    following_users = @user.following
+    following_sleep_records = SleepRecord.joins(:user)
+                                        .where(user: following_users)
+                                        .previous_week
+                                        .completed
+
+    assert_equal 1, following_sleep_records.count
+    assert_equal @other_user.id, following_sleep_records.first.user_id
   end
 
   # Tests for Cacheable concern
