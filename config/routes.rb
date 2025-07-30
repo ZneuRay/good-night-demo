@@ -9,6 +9,11 @@ Rails.application.routes.draw do
   # root "posts#index"
 
   namespace :api do
-    resources :users, only: [:index]
+    resources :users, only: [:index] do
+      member do
+        post :follow
+        delete :unfollow
+      end
+    end
   end
 end

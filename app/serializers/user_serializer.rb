@@ -8,4 +8,7 @@ class UserSerializer
   end
   attribute :following_count
   attribute :followers_count
+  attribute :following do |user|
+    user.following.map { |follow| follow.name }
+  end
 end
