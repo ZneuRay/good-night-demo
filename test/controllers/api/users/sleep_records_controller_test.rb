@@ -247,6 +247,33 @@ class Api::Users::SleepRecordsControllerTest < ActionDispatch::IntegrationTest
     assert_not_nil second_incomplete.clock_out_time # Should be completed
   end
 
+  test "should get following sleep records successfully through service" do
+    followed_user = User.create!(name: "Alice")
+    @user.follow(followed_user)
+
+    # Create previous week sleep record
+    previous_week = Date.current.beginning_of_week - 1.week
+    sleep_record = followed_user.sleep_records.create!(
+      clock_in_time: previous_week + 1.day,
+      clock_out_time: previous_week + 1.day + 8.hours,
+      duration: 8.hours.to_i
+    )
+
+    # Simulate cache data
+    cache_service = Sleep::CacheHandleService.new(user: followed_user)
+    week_key = cache_service.send(:week_cache_key, sleep_record.clock_in_time)
+    cached_record = cache_service.send(:serialize_sleep_record, sleep_record)
+    Rails.cache.write(week_key, [cached_record], expires_in: 1.month)
+
+    get following_api_user_sleep_records_url(@user), headers: @headers
+
+    assert_response :ok
+    json_response = JSON.parse(response.body)
+
+    assert_equal "Following sleep records retrieved successfully", json_response['message']
+    assert_equal 1, json_response['sleep_records'].length
+    assert_equal sleep_record.id, json_response['sleep_records'].first['id']
+  end
 
   private
 
@@ -272,5 +299,9 @@ class Api::Users::SleepRecordsControllerTest < ActionDispatch::IntegrationTest
     else
       "/api/users/#{user}/sleep_records/clock_out"
     end
+  end
+
+  def following_api_user_sleep_records_url(user)
+    "/api/users/#{user.id}/sleep_records/following"
   end
 end
