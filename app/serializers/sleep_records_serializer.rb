@@ -3,10 +3,10 @@ class SleepRecordsSerializer
 
   attribute :id
   attribute :clock_in_time do |record|
-    strftime(record.clock_in_time, "%Y-%m-%d %H:%M:%S")
+    record.clock_in_time.strftime("%Y-%m-%d %H:%M:%S")
   end
   attribute :clock_out_time do |record|
-    strftime(record.clock_out_time, "%Y-%m-%d %H:%M:%S")
+    record.clock_out_time.strftime("%Y-%m-%d %H:%M:%S")
   end
   attribute :duration
 
