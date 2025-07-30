@@ -1,5 +1,6 @@
 class User < ApplicationRecord
   include Followable
-  include SleepTracking
+
+  has_many :sleep_records, dependent: :destroy
 
 end
